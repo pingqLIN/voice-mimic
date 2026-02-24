@@ -9,4 +9,4 @@ from app import create_gradio_interface
 demo = create_gradio_interface()
 
 if __name__ == "__main__":
-    demo.launch()
+    demo.launch(ssr_mode=False)
