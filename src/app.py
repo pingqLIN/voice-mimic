@@ -827,10 +827,20 @@ if __name__ == "__main__":
         )
 
     demo = create_gradio_interface()
-    # Set share to True for public access
+
+    PORT = 7860
+    print()
+    print("=" * 54)
+    print("  Voice Mimic — 聲音克隆工作台")
+    print("=" * 54)
+    print(f"  本機位址 (Local) : http://localhost:{PORT}")
+    print("  公開位址 (Public): 啟動後顯示於下方 ↓")
+    print("=" * 54)
+    print()
+
     demo.launch(
         share=True,
         server_name="0.0.0.0",
-        server_port=7860,
+        server_port=PORT,
         ssr_mode=False
     )
