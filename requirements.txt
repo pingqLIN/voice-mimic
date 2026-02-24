@@ -1,0 +1,4 @@
+dashscope
+gradio==5.49.1
+requests
+certifi
