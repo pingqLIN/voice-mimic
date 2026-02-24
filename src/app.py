@@ -641,11 +641,33 @@ def synthesize_speech_remote(audio_file, reference_text, text_input,
 
 def synthesize_speech_local(text_input):
     """Local offline TTS synthesis without remote API."""
+    import sys
+    import shutil
+    import subprocess
+
     try:
         normalized_text = normalize_segment_text(text_input or "")
         if not normalized_text:
             return None, "❌ 請先輸入要合成的文字"
 
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.wav') as tmp_file:
+            output_path = tmp_file.name
+
+        # On Linux use espeak-ng subprocess directly — avoids pyttsx3 weakref
+        # crashes on Python 3.13 (ReferenceError in ctypes callback).
+        if sys.platform != 'win32' and shutil.which('espeak-ng'):
+            cmd = ['espeak-ng', '-w', output_path]
+            rate = os.getenv("LOCAL_TTS_RATE", "").strip()
+            if rate:
+                cmd += ['-s', rate]
+            cmd.append(normalized_text)
+            result = subprocess.run(cmd, capture_output=True, timeout=60)
+            if result.returncode == 0 and os.path.exists(output_path) and os.path.getsize(output_path) > 0:
+                return output_path, "✅ 本地端模型合成完成（離線）"
+            stderr = result.stderr.decode(errors='replace').strip()
+            return None, f"❌ espeak-ng 合成失敗：{stderr or result.returncode}"
+
+        # Windows / fallback: use pyttsx3 (SAPI5)
         if pyttsx3 is None:
             return None, "❌ 尚未安裝本地端 TTS 套件 pyttsx3，請先 pip install pyttsx3"
 
@@ -666,9 +688,6 @@ def synthesize_speech_local(text_input):
                 if preferred_voice_name in voice_name or preferred_voice_name in voice_id:
                     engine.setProperty("voice", voice.id)
                     break
-
-        with tempfile.NamedTemporaryFile(delete=False, suffix='.wav') as tmp_file:
-            output_path = tmp_file.name
 
         engine.save_to_file(normalized_text, output_path)
         engine.runAndWait()
