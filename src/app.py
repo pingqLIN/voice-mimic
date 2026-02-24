@@ -223,7 +223,7 @@ body,
   animation: rise-in .26s ease-out both;
 }
 
-.panel h3, .section-title {
+.panel h3, .section-title, .section-title h3, .section-title p {
   margin-top: 0 !important;
   margin-bottom: 8px !important;
   color: var(--title) !important;
@@ -236,6 +236,16 @@ body,
   color: var(--muted);
   font-size: 12.5px;
   line-height: 1.55;
+}
+
+/* ── Audio tab buttons (mic / upload) ── */
+.gradio-container [role=\"tab\"] {
+  color: var(--text) !important;
+  font-weight: 600 !important;
+}
+.gradio-container [role=\"tab\"][aria-selected=\"true\"] {
+  color: var(--primary-strong) !important;
+  border-bottom-color: var(--primary-strong) !important;
 }
 
 .footer-tip {
@@ -706,7 +716,7 @@ def create_gradio_interface():
           <button id="theme-toggle" type="button">切換暗色</button>
           <div class="hero-content">
             <p class="hero-kicker">Voice Clone · Qwen TTS · DashScope</p>
-            <h1 class="hero-title">Voice Mimic　聲音克隆工作台</h1>
+            <h1 class="hero-title">Voice Mimic　誰在說話？</h1>
             <p class="hero-subtitle">
               上傳或錄製參考聲音，即可複製任何聲線風格，以截然不同的語音重新說出你想說的一切。
             </p>
@@ -724,9 +734,9 @@ def create_gradio_interface():
         # ── Main Panels ───────────────────────────────────────────────
         with gr.Row(elem_classes=["panel-grid"]):
 
-            # Left panel: Reference voice inputs
+            # Left panel: ① Who is speaking + ② Transcript
             with gr.Column(scale=1, elem_classes=["panel"]):
-                gr.Markdown("### 🎤 參考聲音", elem_classes=["section-title"])
+                gr.Markdown("### ① 誰在說話？", elem_classes=["section-title"])
                 gr.HTML("<p class='section-note'>上傳或錄製 10–30 秒參考聲音。環境越安靜，克隆效果越接近原聲。</p>")
                 audio_input = gr.Audio(
                     sources=["microphone", "upload"],
@@ -735,10 +745,10 @@ def create_gradio_interface():
                     format="wav"
                 )
 
-                gr.Markdown("### 📋 參考聲音逐字稿", elem_classes=["section-title"])
-                gr.HTML("<p class='section-note'>輸入參考音檔中人物說話的文字，可大幅提升克隆相似度。<br>若勾選下方選項，此欄位可留空。</p>")
+                gr.Markdown("### ② 他說了什麼？", elem_classes=["section-title"])
+                gr.HTML("<p class='section-note'>輸入參考音檔中說話的文字，可大幅提升克隆相似度。<br>若勾選下方選項，此欄位可留空。</p>")
                 reference_text_input = gr.Textbox(
-                    label="參考文字（Transcript）",
+                    label="參考逐字稿（Transcript）",
                     placeholder="請輸入參考音檔中說話的文字內容…",
                     lines=3
                 )
@@ -748,15 +758,15 @@ def create_gradio_interface():
                     info="勾選後不需提供逐字稿，直接以聲紋向量克隆聲音"
                 )
 
-            # Right panel: Synthesis target + controls
+            # Right panel: ③ Target text → ④ Output
             with gr.Column(scale=1, elem_classes=["panel"]):
-                gr.Markdown("### ✍️ 合成目標文字", elem_classes=["section-title"])
+                gr.Markdown("### ③ 你想說什麼？", elem_classes=["section-title"])
                 gr.HTML("<p class='section-note'>輸入要以克隆聲音說出的文字內容。</p>")
                 text_input = gr.Textbox(
                     label="目標合成文字",
                     placeholder="輸入要合成的文字…",
                     lines=5,
-                    value="你好，這是使用聲音克隆技術合成的語音示範。"
+                    value="今天二零二六年二月二十四號，我從家裡出門，先去巷口買一杯少冰微糖的紅茶。捷運到站，我刷悠遊卡，站在月台邊等門開。"
                 )
 
                 with gr.Row():
@@ -782,10 +792,7 @@ def create_gradio_interface():
                     elem_classes=["synthesize-btn"]
                 )
 
-        # ── Output Section ────────────────────────────────────────────
-        with gr.Row(elem_classes=["panel-grid"]):
-            with gr.Column(elem_classes=["panel"]):
-                gr.Markdown("### 📢 合成結果", elem_classes=["section-title"])
+                gr.Markdown("### ④ 合成結果", elem_classes=["section-title"])
                 status_output = gr.Textbox(
                     label="系統訊息",
                     interactive=False,
