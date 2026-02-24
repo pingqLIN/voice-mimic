@@ -9,7 +9,6 @@ A Colab Notebook-based voice cloning / TTS project supporting both remote API (D
 - `notebooks/voice-mimic-colab.ipynb` — Original workflow notebook (run in Colab)
 - `src/app.py` — Maintainable code extracted from the notebook
 - `requirements.txt` — Python dependencies
-- `docs/` — Project assets
 
 ## Quick Start (Local)
 
