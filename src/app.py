@@ -139,36 +139,8 @@ body,
   animation: rise-in .30s ease-out both;
 }
 
-.hero-inner {
-  display: flex;
-  align-items: stretch;
-  min-height: 360px;
-}
-
-.hero-illustration {
-  flex: 0 0 44%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: color-mix(in oklab, var(--accent) 6%, transparent);
-  border-right: 1px solid var(--panel-border);
-  padding: 20px 12px 20px 20px;
-}
-
-.hero-illustration svg {
-  width: 100%;
-  max-width: 330px;
-  height: auto;
-  filter: drop-shadow(0 8px 20px color-mix(in oklab, var(--accent) 18%, transparent));
-}
-
 .hero-content {
-  flex: 1;
-  padding: 32px 32px 28px 28px;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 0;
+  padding: 32px 36px 28px;
 }
 
 .hero-kicker {
@@ -328,14 +300,6 @@ body,
 }
 
 @media (max-width: 860px) {
-  .hero-inner { flex-direction: column; }
-  .hero-illustration {
-    flex: 0 0 auto;
-    border-right: none;
-    border-bottom: 1px solid var(--panel-border);
-    padding: 18px;
-  }
-  .hero-illustration svg { max-width: 220px; }
   .hero-content { padding: 20px 20px 24px; }
   #theme-toggle { position: static; margin: 10px 16px 0 auto; display: block; }
 }
@@ -720,118 +684,6 @@ def synthesize_speech(audio_file, reference_text, text_input,
         language=language or "Auto"
     )
 
-# ======= Fox Mascot SVG (Design by SubAgent) =======
-_FOX_SVG = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 380 420" width="380" height="420">
-  <defs>
-    <linearGradient id="bodyGrad" x1="20%" y1="0%" x2="80%" y2="100%">
-      <stop offset="0%" stop-color="#d4ba8c"/>
-      <stop offset="100%" stop-color="#b89868"/>
-    </linearGradient>
-    <linearGradient id="headGrad" x1="25%" y1="0%" x2="75%" y2="100%">
-      <stop offset="0%" stop-color="#d2b680"/>
-      <stop offset="100%" stop-color="#c4a87a"/>
-    </linearGradient>
-    <linearGradient id="tailGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#c8ae7a"/>
-      <stop offset="100%" stop-color="#a07848"/>
-    </linearGradient>
-    <linearGradient id="micGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#8e8c84"/>
-      <stop offset="100%" stop-color="#6a6860"/>
-    </linearGradient>
-    <linearGradient id="handsetGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#8e8c84"/>
-      <stop offset="100%" stop-color="#686660"/>
-    </linearGradient>
-  </defs>
-  <!-- Tail -->
-  <ellipse cx="256" cy="335" rx="42" ry="23" fill="url(#tailGrad)" transform="rotate(-28,256,335)"/>
-  <ellipse cx="274" cy="352" rx="27" ry="17" fill="#c4a87a" transform="rotate(-20,274,352)"/>
-  <ellipse cx="280" cy="358" rx="18" ry="12" fill="#e8dcc4" transform="rotate(-14,280,358)"/>
-  <!-- Legs -->
-  <path d="M165,325 Q160,358 158,393" stroke="#c4a87a" stroke-width="28" stroke-linecap="round" fill="none"/>
-  <path d="M215,325 Q220,358 222,393" stroke="#c4a87a" stroke-width="28" stroke-linecap="round" fill="none"/>
-  <ellipse cx="157" cy="397" rx="23" ry="12" fill="#c4a87a"/>
-  <ellipse cx="223" cy="397" rx="23" ry="12" fill="#c4a87a"/>
-  <ellipse cx="145" cy="399" rx="7" ry="5" fill="#b09060"/>
-  <ellipse cx="157" cy="402" rx="7" ry="5" fill="#b09060"/>
-  <ellipse cx="170" cy="399" rx="7" ry="5" fill="#b09060"/>
-  <ellipse cx="211" cy="399" rx="7" ry="5" fill="#b09060"/>
-  <ellipse cx="223" cy="402" rx="7" ry="5" fill="#b09060"/>
-  <ellipse cx="236" cy="399" rx="7" ry="5" fill="#b09060"/>
-  <!-- Body -->
-  <ellipse cx="190" cy="268" rx="56" ry="72" fill="url(#bodyGrad)"/>
-  <ellipse cx="190" cy="278" rx="34" ry="54" fill="#e8dcc4"/>
-  <!-- Left arm (mic side) -->
-  <path d="M142,240 Q118,252 108,276" stroke="#c4a87a" stroke-width="22" stroke-linecap="round" fill="none"/>
-  <path d="M108,276 Q100,292 102,312" stroke="#c4a87a" stroke-width="20" stroke-linecap="round" fill="none"/>
-  <ellipse cx="102" cy="318" rx="14" ry="11" fill="#c4a87a" transform="rotate(-8,102,318)"/>
-  <ellipse cx="91" cy="313" rx="6" ry="5" fill="#b09060"/>
-  <ellipse cx="99" cy="309" rx="6" ry="5" fill="#b09060"/>
-  <ellipse cx="109" cy="311" rx="6" ry="5" fill="#b09060"/>
-  <!-- Microphone (話筒) -->
-  <rect x="96" y="270" width="12" height="50" rx="6" fill="url(#micGrad)"/>
-  <circle cx="102" cy="258" r="20" fill="url(#micGrad)"/>
-  <circle cx="102" cy="258" r="17" fill="none" stroke="#aaa89e" stroke-width="1.2" opacity="0.45"/>
-  <circle cx="102" cy="258" r="12" fill="none" stroke="#aaa89e" stroke-width="1" opacity="0.35"/>
-  <circle cx="102" cy="258" r="6" fill="none" stroke="#aaa89e" stroke-width="0.8" opacity="0.3"/>
-  <line x1="102" y1="239" x2="102" y2="277" stroke="#aaa89e" stroke-width="0.9" opacity="0.35"/>
-  <line x1="83" y1="258" x2="121" y2="258" stroke="#aaa89e" stroke-width="0.9" opacity="0.35"/>
-  <rect x="91" y="318" width="22" height="8" rx="4" fill="#5a5248"/>
-  <!-- Right arm (handset side) -->
-  <path d="M238,240 Q260,218 270,196" stroke="#c4a87a" stroke-width="22" stroke-linecap="round" fill="none"/>
-  <path d="M270,196 Q278,175 274,153" stroke="#c4a87a" stroke-width="20" stroke-linecap="round" fill="none"/>
-  <ellipse cx="272" cy="146" rx="14" ry="11" fill="#c4a87a" transform="rotate(12,272,146)"/>
-  <ellipse cx="264" cy="138" rx="6" ry="5" fill="#b09060"/>
-  <ellipse cx="274" cy="135" rx="6" ry="5" fill="#b09060"/>
-  <ellipse cx="282" cy="140" rx="6" ry="5" fill="#b09060"/>
-  <!-- Telephone Handset (聽筒) -->
-  <path d="M258,102 Q286,88 302,110 Q315,130 306,155 Q295,175 274,170 Q258,164 252,145 Q244,122 258,102 Z" fill="url(#handsetGrad)"/>
-  <ellipse cx="285" cy="103" rx="13" ry="11" fill="#5a5248" transform="rotate(-18,285,103)"/>
-  <ellipse cx="285" cy="103" rx="8" ry="7" fill="#3a3028" transform="rotate(-18,285,103)"/>
-  <ellipse cx="263" cy="165" rx="11" ry="9" fill="#5a5248" transform="rotate(-18,263,165)"/>
-  <ellipse cx="263" cy="165" rx="7" ry="5" fill="#3a3028" transform="rotate(-18,263,165)"/>
-  <ellipse cx="279" cy="135" rx="7" ry="18" fill="#9a9890" opacity="0.25" transform="rotate(-18,279,135)"/>
-  <!-- Curly coiled cord (話筒 → 聽筒) -->
-  <path d="M114,326 C116,338 126,338 128,326 C130,314 140,314 142,326 C144,338 154,338 156,326 C158,314 168,314 170,326 C172,338 182,338 184,326 C186,314 196,314 198,326 C200,338 210,338 212,326 C214,314 224,316 230,324 C238,336 248,336 254,322 C259,310 260,288 262,258 C263,228 263,198 260,172" stroke="#5a5248" stroke-width="2.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-  <!-- Ears -->
-  <polygon points="148,92 133,46 172,74" fill="#c4a87a"/>
-  <polygon points="150,89 140,54 168,74" fill="#b8806e"/>
-  <polygon points="232,92 247,46 208,74" fill="#c4a87a"/>
-  <polygon points="230,89 240,54 212,74" fill="#b8806e"/>
-  <!-- Head -->
-  <ellipse cx="190" cy="128" rx="58" ry="60" fill="url(#headGrad)"/>
-  <!-- Muzzle -->
-  <ellipse cx="186" cy="156" rx="32" ry="23" fill="#e8dcc4"/>
-  <line x1="186" y1="143" x2="186" y2="169" stroke="#cbb88a" stroke-width="1.2" opacity="0.5"/>
-  <!-- Eyes -->
-  <ellipse cx="167" cy="120" rx="11" ry="12" fill="white"/>
-  <ellipse cx="169" cy="122" rx="8" ry="9" fill="#3a3028"/>
-  <circle cx="172" cy="118" r="2.8" fill="white"/>
-  <path d="M157,109 Q167,104 178,109" stroke="#3a3028" stroke-width="2.8" fill="none" stroke-linecap="round"/>
-  <ellipse cx="213" cy="120" rx="11" ry="12" fill="white"/>
-  <ellipse cx="215" cy="122" rx="8" ry="9" fill="#3a3028"/>
-  <circle cx="218" cy="118" r="2.8" fill="white"/>
-  <path d="M202,109 Q213,104 224,109" stroke="#3a3028" stroke-width="2.8" fill="none" stroke-linecap="round"/>
-  <!-- Cheek blush -->
-  <ellipse cx="155" cy="138" rx="13" ry="8" fill="#c87050" opacity="0.13"/>
-  <ellipse cx="225" cy="138" rx="13" ry="8" fill="#c87050" opacity="0.13"/>
-  <!-- Nose -->
-  <ellipse cx="186" cy="147" rx="9" ry="6.5" fill="#3a3028"/>
-  <ellipse cx="184" cy="145" rx="3.5" ry="2.2" fill="#5a5248" opacity="0.4"/>
-  <!-- Mouth (open, speaking) -->
-  <path d="M173,161 Q186,174 199,161" fill="#b8806e" stroke="#3a3028" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
-  <rect x="179" y="161" width="14" height="7" rx="2" fill="white" opacity="0.9"/>
-  <!-- Whiskers left -->
-  <line x1="157" y1="153" x2="124" y2="147" stroke="#3a3028" stroke-width="1.4" stroke-linecap="round" opacity="0.7"/>
-  <line x1="157" y1="158" x2="124" y2="158" stroke="#3a3028" stroke-width="1.4" stroke-linecap="round" opacity="0.7"/>
-  <line x1="157" y1="163" x2="126" y2="169" stroke="#3a3028" stroke-width="1.4" stroke-linecap="round" opacity="0.7"/>
-  <!-- Whiskers right -->
-  <line x1="215" y1="153" x2="248" y2="147" stroke="#3a3028" stroke-width="1.4" stroke-linecap="round" opacity="0.7"/>
-  <line x1="215" y1="158" x2="250" y2="158" stroke="#3a3028" stroke-width="1.4" stroke-linecap="round" opacity="0.7"/>
-  <line x1="215" y1="163" x2="246" y2="169" stroke="#3a3028" stroke-width="1.4" stroke-linecap="round" opacity="0.7"/>
-</svg>"""
-
 # ======= Gradio Interface =======
 def create_gradio_interface():
     """Create Gradio interface — Voice Clone (Base) feature set."""
@@ -849,27 +701,21 @@ def create_gradio_interface():
     ) as demo:
 
         # ── Hero Section ──────────────────────────────────────────────
-        gr.HTML(f"""
+        gr.HTML("""
         <section class="hero-wrap">
           <button id="theme-toggle" type="button">切換暗色</button>
-          <div class="hero-inner">
-            <div class="hero-illustration">
-              {_FOX_SVG}
-            </div>
-            <div class="hero-content">
-              <p class="hero-kicker">Voice Clone · Qwen TTS · DashScope</p>
-              <h1 class="hero-title">Voice Mimic<br>聲音克隆工作台</h1>
-              <p class="hero-subtitle">
-                上傳或錄製參考聲音，即可複製任何聲線風格，<br>
-                以截然不同的語音重新說出你想說的一切。
-              </p>
-              <div class="hero-badges">
-                <span class="hero-badge">🎙️ 麥克風錄製 / 檔案上傳</span>
-                <span class="hero-badge">📝 逐字稿輔助克隆</span>
-                <span class="hero-badge">🔀 X‑vector 純音色模式</span>
-                <span class="hero-badge">🌐 10 種語言</span>
-                <span class="hero-badge">⚡ 遠端 API / 本地端</span>
-              </div>
+          <div class="hero-content">
+            <p class="hero-kicker">Voice Clone · Qwen TTS · DashScope</p>
+            <h1 class="hero-title">Voice Mimic　聲音克隆工作台</h1>
+            <p class="hero-subtitle">
+              上傳或錄製參考聲音，即可複製任何聲線風格，以截然不同的語音重新說出你想說的一切。
+            </p>
+            <div class="hero-badges">
+              <span class="hero-badge">🎙️ 麥克風錄製 / 檔案上傳</span>
+              <span class="hero-badge">📝 逐字稿輔助克隆</span>
+              <span class="hero-badge">🔀 X‑vector 純音色模式</span>
+              <span class="hero-badge">🌐 10 種語言</span>
+              <span class="hero-badge">⚡ 遠端 API / 本地端</span>
             </div>
           </div>
         </section>
