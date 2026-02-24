@@ -60,6 +60,31 @@ DEFAULT_INTL_HTTP_URL = "https://dashscope-us.aliyuncs.com/compatible-mode/v1"
 DEFAULT_CN_WS_URL = "wss://dashscope-intl.aliyuncs.com/api-ws/v1/realtime"
 DEFAULT_INTL_WS_URL = "wss://dashscope-us.aliyuncs.com/api-ws/v1/realtime"
 
+# ── Standard TTS（非 Realtime） ──
+QWEN3_TTS_FLASH_MODEL    = "qwen3-tts-flash"
+QWEN3_TTS_INSTRUCT_MODEL = "qwen3-tts-instruct-flash"
+QWEN3_TTS_VD_MODEL       = "qwen3-tts-vd"
+QWEN_VOICE_DESIGN_MODEL  = "qwen-voice-design"
+
+# Base hosts for standard (non-compatible-mode) API
+_TTS_API_HOST_CN   = "https://dashscope-intl.aliyuncs.com"
+_TTS_API_HOST_INTL = "https://dashscope-us.aliyuncs.com"
+_TTS_GENERATION_PATH     = "/api/v1/services/aigc/multimodal-generation/generation"
+_TTS_CUSTOMIZATION_PATH  = "/api/v1/services/audio/tts/customization"
+
+# Preset voices (Qwen3-TTS CustomVoice – 9 timbres)
+_PRESET_VOICES = [
+    "Serena — 溫柔少女音",
+    "Vivian — 清爽少女音",
+    "Ryan — 活力英語男聲",
+    "Aiden — 陽光美式男聲",
+    "Eric — 活力成都男聲",
+    "Dylan — 青春北京男聲",
+    "Uncle_Fu — 渾厚中年男聲",
+    "Ono_Anna — 俏皮日語女聲",
+    "Sohee — 韓語女聲",
+]
+
 # Local TTS model options shown in the UI dropdown
 _LOCAL_TTS_MODELS = [
     "espeak-ng（離線）",
@@ -353,6 +378,32 @@ body,
 @keyframes rise-in {
   from { opacity: 0; transform: translateY(8px); }
   to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Tabs ── */
+.gradio-container .tab-nav {
+  border-bottom: 1px solid color-mix(in oklab, var(--panel-border) 120%, transparent) !important;
+  gap: 4px !important;
+  padding: 0 4px !important;
+}
+.gradio-container .tab-nav button {
+  color: var(--muted) !important;
+  font-weight: 600 !important;
+  font-size: 13px !important;
+  border-radius: 8px 8px 0 0 !important;
+  padding: 8px 18px !important;
+  transition: color .15s ease, background .15s ease !important;
+  border: none !important;
+  background: transparent !important;
+}
+.gradio-container .tab-nav button:hover {
+  color: var(--text) !important;
+  background: color-mix(in oklab, var(--primary) 8%, transparent) !important;
+}
+.gradio-container .tab-nav button.selected {
+  color: var(--primary-strong) !important;
+  background: color-mix(in oklab, var(--primary) 10%, transparent) !important;
+  border-bottom: 2px solid var(--primary-strong) !important;
 }
 
 @media (max-width: 860px) {
@@ -779,6 +830,247 @@ def synthesize_speech_local(text_input, local_model: str = ""):
         return None, error_msg
 
 
+def _make_tts_session(api_key: str):
+    """Build a requests.Session with retry strategy for standard TTS calls."""
+    from requests.adapters import HTTPAdapter
+    from urllib3.util.retry import Retry
+    session = requests.Session()
+    session.verify = certifi.where()
+    retry = Retry(total=3, backoff_factor=1,
+                  status_forcelist=[429, 500, 502, 503, 504],
+                  allowed_methods=["POST", "GET"])
+    adapter = HTTPAdapter(max_retries=retry)
+    session.mount("https://", adapter)
+    session.mount("http://", adapter)
+    session.headers.update({
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+    })
+    return session
+
+
+def _download_audio(session, audio_url: str) -> bytes:
+    """Download audio from a DashScope-issued URL."""
+    resp = session.get(audio_url, timeout=(10, 60))
+    resp.raise_for_status()
+    return resp.content
+
+
+def _save_audio_to_tmp(data: bytes, suffix: str = ".wav") -> str:
+    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as f:
+        f.write(data)
+        return f.name
+
+
+def synthesize_speech_preset(text_input: str,
+                              voice_label: str,
+                              language: str = "Auto",
+                              instructions: str = "",
+                              api_key_override: str = "") -> tuple:
+    """
+    Standard TTS with a preset voice (Qwen3-TTS CustomVoice).
+
+    Returns (audio_path, status_message).
+    """
+    try:
+        normalized = normalize_segment_text(text_input or "")
+        if not normalized:
+            return None, "❌ 請輸入要合成的文字"
+        if not voice_label:
+            return None, "❌ 請選擇預設聲線"
+
+        # Parse voice ID from label "Serena — 溫柔少女音" → "Serena"
+        voice_id = voice_label.split("—")[0].strip()
+
+        # Resolve API key
+        if api_key_override and api_key_override.strip():
+            api_key = api_key_override.strip()
+            os.environ["DASHSCOPE_API_KEY"] = api_key
+        else:
+            api_key = get_dashscope_api_key()
+
+        model = QWEN3_TTS_INSTRUCT_MODEL if (instructions and instructions.strip()) else QWEN3_TTS_FLASH_MODEL
+
+        payload = {
+            "model": model,
+            "input": {
+                "text": normalized,
+                "voice": voice_id,
+                "language_type": language,
+            },
+            "parameters": {
+                "response_format": "wav",
+                "sample_rate": 24000,
+            },
+        }
+        if instructions and instructions.strip():
+            payload["input"]["instructions"] = instructions.strip()
+
+        hosts = [_TTS_API_HOST_CN, _TTS_API_HOST_INTL]
+        session = _make_tts_session(api_key)
+        last_err = None
+
+        for idx, host in enumerate(hosts, start=1):
+            url = host + _TTS_GENERATION_PATH
+            try:
+                print(f"[preset TTS] 端點 {idx}/{len(hosts)}: {url}")
+                resp = session.post(url, json=payload, timeout=(15, 90))
+                if resp.status_code == 401:
+                    return None, "❌ DashScope 驗證失敗（401），請確認 API Key 正確"
+                resp.raise_for_status()
+                body = resp.json()
+
+                # Try audio_url first, then base64 audio data
+                audio_url = (body.get("output") or {}).get("audio_url")
+                if audio_url:
+                    audio_bytes = _download_audio(session, audio_url)
+                else:
+                    # Some endpoints return audio as base64 in output.audio
+                    b64 = (body.get("output") or {}).get("audio")
+                    if b64:
+                        audio_bytes = base64.b64decode(b64)
+                    else:
+                        return None, f"❌ API 回應未含音訊資料：{body}"
+
+                path = _save_audio_to_tmp(audio_bytes, ".wav")
+                return path, f"✅ 預設聲線合成完成（{voice_id}）"
+
+            except Exception as e:
+                last_err = e
+                if is_ssl_or_transport_error(e):
+                    print(f"⚠️ 端點異常，改試下一個：{e}")
+                    continue
+                return None, f"❌ 發生錯誤：{e}"
+
+        return None, f"❌ 所有端點連線失敗：{last_err}"
+
+    except Exception as e:
+        return None, f"❌ 預設聲線合成失敗：{e}"
+
+
+def synthesize_speech_voice_design(voice_prompt: str,
+                                   preview_text: str,
+                                   text_input: str,
+                                   language: str = "Auto",
+                                   api_key_override: str = "") -> tuple:
+    """
+    Two-step voice design:
+      1. Create a custom voice from natural-language description.
+      2. Synthesize text with the created voice.
+
+    Returns (audio_path, status_message).
+    """
+    try:
+        if not voice_prompt or not voice_prompt.strip():
+            return None, "❌ 請輸入聲線描述"
+        normalized = normalize_segment_text(text_input or "")
+        if not normalized:
+            return None, "❌ 請輸入要合成的文字"
+
+        if api_key_override and api_key_override.strip():
+            api_key = api_key_override.strip()
+            os.environ["DASHSCOPE_API_KEY"] = api_key
+        else:
+            api_key = get_dashscope_api_key()
+
+        # Language code mapping
+        lang_map = {
+            "Chinese": "zh", "English": "en", "Japanese": "ja",
+            "Korean": "ko", "French": "fr", "German": "de",
+            "Spanish": "es", "Portuguese": "pt", "Russian": "ru",
+        }
+        lang_code = lang_map.get(language, "zh")
+
+        hosts = [_TTS_API_HOST_CN, _TTS_API_HOST_INTL]
+        session = _make_tts_session(api_key)
+        last_err = None
+
+        # ── Step 1: Create voice ──────────────────────────────────────
+        create_payload = {
+            "model": QWEN_VOICE_DESIGN_MODEL,
+            "input": {
+                "action": "create",
+                "target_model": QWEN3_TTS_VD_MODEL,
+                "voice_prompt": voice_prompt.strip(),
+                "preview_text": (preview_text or "").strip() or normalized[:50],
+                "preferred_name": "custom_vd",
+                "language": lang_code,
+            },
+        }
+
+        voice_id = None
+        for idx, host in enumerate(hosts, start=1):
+            url = host + _TTS_CUSTOMIZATION_PATH
+            try:
+                print(f"[voice design] 建立聲線 端點 {idx}/{len(hosts)}: {url}")
+                resp = session.post(url, json=create_payload, timeout=(15, 90))
+                if resp.status_code == 401:
+                    return None, "❌ DashScope 驗證失敗（401），請確認 API Key 正確"
+                resp.raise_for_status()
+                body = resp.json()
+                voice_id = (body.get("output") or {}).get("voice_id") or \
+                           (body.get("output") or {}).get("voice")
+                if voice_id:
+                    break
+                return None, f"❌ 建立聲線失敗，API 回應：{body}"
+            except Exception as e:
+                last_err = e
+                if is_ssl_or_transport_error(e):
+                    continue
+                return None, f"❌ 建立聲線時發生錯誤：{e}"
+
+        if not voice_id:
+            return None, f"❌ 所有端點連線失敗（建立聲線）：{last_err}"
+
+        print(f"[voice design] 聲線建立成功 voice_id={voice_id}")
+
+        # ── Step 2: Synthesize with created voice ─────────────────────
+        synth_payload = {
+            "model": QWEN3_TTS_VD_MODEL,
+            "input": {
+                "text": normalized,
+                "voice": voice_id,
+                "language_type": language,
+            },
+            "parameters": {
+                "response_format": "wav",
+                "sample_rate": 24000,
+            },
+        }
+
+        for idx, host in enumerate(hosts, start=1):
+            url = host + _TTS_GENERATION_PATH
+            try:
+                print(f"[voice design] 合成 端點 {idx}/{len(hosts)}: {url}")
+                resp = session.post(url, json=synth_payload, timeout=(15, 120))
+                resp.raise_for_status()
+                body = resp.json()
+
+                audio_url = (body.get("output") or {}).get("audio_url")
+                if audio_url:
+                    audio_bytes = _download_audio(session, audio_url)
+                else:
+                    b64 = (body.get("output") or {}).get("audio")
+                    if b64:
+                        audio_bytes = base64.b64decode(b64)
+                    else:
+                        return None, f"❌ 合成 API 回應未含音訊：{body}"
+
+                path = _save_audio_to_tmp(audio_bytes, ".wav")
+                return path, f"✅ 聲線設計合成完成（voice_id: {voice_id}）"
+
+            except Exception as e:
+                last_err = e
+                if is_ssl_or_transport_error(e):
+                    continue
+                return None, f"❌ 合成時發生錯誤：{e}"
+
+        return None, f"❌ 所有端點連線失敗（合成）：{last_err}"
+
+    except Exception as e:
+        return None, f"❌ 聲線設計失敗：{e}"
+
+
 def synthesize_speech(audio_file, reference_text, text_input,
                      execution_mode, use_xvector_only, language,
                      api_key_override, local_model):
@@ -794,7 +1086,7 @@ def synthesize_speech(audio_file, reference_text, text_input,
 
 # ======= Gradio Interface =======
 def create_gradio_interface():
-    """Create Gradio interface — Voice Clone (Base) feature set."""
+    """Create Gradio interface — Voice Clone / Preset Voice / Voice Design."""
 
     _LANGUAGES = [
         "Auto", "Chinese", "English", "Japanese", "Korean",
@@ -802,7 +1094,7 @@ def create_gradio_interface():
     ]
 
     with gr.Blocks(
-        title="Voice Mimic — 聲音克隆工作台",
+        title="Voice Mimic — 三種說話方式",
         theme=gr.themes.Base(),
         css=UI_CSS,
         head=UI_HEAD
@@ -813,15 +1105,16 @@ def create_gradio_interface():
         <section class="hero-wrap">
           <button id="theme-toggle" type="button">切換暗色</button>
           <div class="hero-content">
-            <p class="hero-kicker">Voice Clone · Qwen TTS · DashScope</p>
-            <h1 class="hero-title">Voice Mimic　誰在說話？</h1>
+            <p class="hero-kicker">Voice Clone · Preset Voice · Voice Design · DashScope</p>
+            <h1 class="hero-title">Voice Mimic　三種說話方式</h1>
             <p class="hero-subtitle">
-              上傳或錄製參考聲音，即可複製任何聲線風格，以截然不同的語音重新說出你想說的一切。
+              克隆任何聲線、選用九種預設音色，或以一句話描述你想要的聲音風格——讓文字用你選擇的聲音說出口。
             </p>
             <div class="hero-badges">
-              <span class="hero-badge">🎙️ 麥克風錄製 / 檔案上傳</span>
-              <span class="hero-badge">📝 逐字稿輔助克隆</span>
-              <span class="hero-badge">🔀 X‑vector 純音色模式</span>
+              <span class="hero-badge">🎙️ 聲音克隆</span>
+              <span class="hero-badge">🔊 九種預設聲線</span>
+              <span class="hero-badge">🎨 自訂聲線設計</span>
+              <span class="hero-badge">📝 情感指令控制</span>
               <span class="hero-badge">🌐 10 種語言</span>
               <span class="hero-badge">⚡ 遠端 API / 本地端</span>
             </div>
@@ -829,122 +1122,243 @@ def create_gradio_interface():
         </section>
         """)
 
-        # ── Main Panels ───────────────────────────────────────────────
-        with gr.Row(elem_classes=["panel-grid"]):
+        # ── Three Tabs ────────────────────────────────────────────────
+        with gr.Tabs():
 
-            # Left panel: ① Who is speaking + ② Transcript
-            with gr.Column(scale=1, elem_classes=["panel"]):
-                gr.Markdown("### ① 誰在說話？", elem_classes=["section-title"])
-                gr.HTML("<p class='section-note'>上傳或錄製 10–30 秒參考聲音。環境越安靜，克隆效果越接近原聲。</p>")
-                audio_input = gr.Audio(
-                    sources=["microphone", "upload"],
-                    type="filepath",
-                    label="參考聲音（上傳 / 錄製）",
-                    format="wav"
+            # ════════════════════════════════════════════════════════
+            # Tab 1 — 聲音克隆（現有功能）
+            # ════════════════════════════════════════════════════════
+            with gr.Tab("① 聲音克隆"):
+                with gr.Row(elem_classes=["panel-grid"]):
+
+                    # Left panel: ① Who is speaking + ② Transcript
+                    with gr.Column(scale=1, elem_classes=["panel"]):
+                        gr.Markdown("### ① 誰在說話？", elem_classes=["section-title"])
+                        gr.HTML("<p class='section-note'>上傳或錄製 10–30 秒參考聲音。環境越安靜，克隆效果越接近原聲。</p>")
+                        audio_input = gr.Audio(
+                            sources=["microphone", "upload"],
+                            type="filepath",
+                            label="參考聲音（上傳 / 錄製）",
+                            format="wav"
+                        )
+
+                        gr.Markdown("### ② 他說了什麼？", elem_classes=["section-title"])
+                        gr.HTML("<p class='section-note'>輸入參考音檔中說話的文字，可大幅提升克隆相似度。<br>若勾選下方選項，此欄位可留空。</p>")
+                        reference_text_input = gr.Textbox(
+                            label="參考逐字稿（Transcript）",
+                            placeholder="請輸入參考音檔中說話的文字內容…",
+                            lines=3
+                        )
+                        xvector_only = gr.Checkbox(
+                            label="僅使用 X-vector（不需逐字稿，品質較低）",
+                            value=False,
+                            info="勾選後不需提供逐字稿，直接以聲紋向量克隆聲音"
+                        )
+
+                    # Right panel: ③ Target text → ④ Output
+                    with gr.Column(scale=1, elem_classes=["panel"]):
+                        gr.Markdown("### ③ 你想說什麼？", elem_classes=["section-title"])
+                        gr.HTML("<p class='section-note'>輸入要以克隆聲音說出的文字內容。</p>")
+                        vc_text_input = gr.Textbox(
+                            label="目標合成文字",
+                            placeholder="輸入要合成的文字…",
+                            lines=5,
+                            value="今天二零二六年二月二十四號，我從家裡出門，先去巷口買一杯少冰微糖的紅茶。捷運到站，我刷悠遊卡，站在月台邊等門開。"
+                        )
+
+                        with gr.Row():
+                            vc_language = gr.Dropdown(
+                                label="語言",
+                                choices=_LANGUAGES,
+                                value="Auto",
+                                interactive=True,
+                                scale=1
+                            )
+                            vc_execution_mode = gr.Radio(
+                                choices=["遠端 API（DashScope 聲音分身）", "本地端模型（離線 TTS）"],
+                                value="遠端 API（DashScope 聲音分身）",
+                                label="執行模式",
+                                info="遠端 API 需 DASHSCOPE_API_KEY；本地端不需金鑰",
+                                scale=2
+                            )
+
+                        vc_api_key = gr.Textbox(
+                            label="DashScope API Key（選填）",
+                            placeholder="貼上 API Key，優先於環境變數 DASHSCOPE_API_KEY",
+                            type="password",
+                            visible=True
+                        )
+                        vc_local_model = gr.Dropdown(
+                            label="本地端 TTS 模型",
+                            choices=_LOCAL_TTS_MODELS,
+                            value=_LOCAL_TTS_MODELS[0],
+                            info="espeak-ng 完全離線；edge-tts 需網路但語音品質更自然",
+                            visible=False
+                        )
+
+                        vc_submit_btn = gr.Button(
+                            "🎧 開始克隆合成",
+                            variant="primary",
+                            size="lg",
+                            elem_classes=["synthesize-btn"]
+                        )
+
+                        gr.Markdown("### ④ 合成結果", elem_classes=["section-title"])
+                        vc_status = gr.Textbox(label="系統訊息", interactive=False, lines=2)
+                        vc_audio_output = gr.Audio(label="克隆合成語音", type="filepath")
+
+                def _vc_mode_change(mode):
+                    is_remote = mode.startswith("遠端")
+                    return gr.update(visible=is_remote), gr.update(visible=not is_remote)
+
+                vc_execution_mode.change(
+                    fn=_vc_mode_change,
+                    inputs=[vc_execution_mode],
+                    outputs=[vc_api_key, vc_local_model]
+                )
+                vc_submit_btn.click(
+                    fn=synthesize_speech,
+                    inputs=[audio_input, reference_text_input, vc_text_input,
+                            vc_execution_mode, xvector_only, vc_language,
+                            vc_api_key, vc_local_model],
+                    outputs=[vc_audio_output, vc_status]
                 )
 
-                gr.Markdown("### ② 他說了什麼？", elem_classes=["section-title"])
-                gr.HTML("<p class='section-note'>輸入參考音檔中說話的文字，可大幅提升克隆相似度。<br>若勾選下方選項，此欄位可留空。</p>")
-                reference_text_input = gr.Textbox(
-                    label="參考逐字稿（Transcript）",
-                    placeholder="請輸入參考音檔中說話的文字內容…",
-                    lines=3
-                )
-                xvector_only = gr.Checkbox(
-                    label="僅使用 X-vector（不需逐字稿，品質較低）",
-                    value=False,
-                    info="勾選後不需提供逐字稿，直接以聲紋向量克隆聲音"
-                )
+            # ════════════════════════════════════════════════════════
+            # Tab 2 — 預設聲線
+            # ════════════════════════════════════════════════════════
+            with gr.Tab("② 預設聲線"):
+                with gr.Row(elem_classes=["panel-grid"]):
 
-            # Right panel: ③ Target text → ④ Output
-            with gr.Column(scale=1, elem_classes=["panel"]):
-                gr.Markdown("### ③ 你想說什麼？", elem_classes=["section-title"])
-                gr.HTML("<p class='section-note'>輸入要以克隆聲音說出的文字內容。</p>")
-                text_input = gr.Textbox(
-                    label="目標合成文字",
-                    placeholder="輸入要合成的文字…",
-                    lines=5,
-                    value="今天二零二六年二月二十四號，我從家裡出門，先去巷口買一杯少冰微糖的紅茶。捷運到站，我刷悠遊卡，站在月台邊等門開。"
-                )
+                    with gr.Column(scale=1, elem_classes=["panel"]):
+                        gr.Markdown("### ① 選擇聲線", elem_classes=["section-title"])
+                        gr.HTML("<p class='section-note'>從 Qwen3-TTS 九種精選音色中選擇一個預設聲線。</p>")
+                        preset_voice = gr.Dropdown(
+                            label="預設聲線",
+                            choices=_PRESET_VOICES,
+                            value=_PRESET_VOICES[0],
+                            interactive=True
+                        )
 
-                with gr.Row():
-                    language_selector = gr.Dropdown(
-                        label="語言",
-                        choices=_LANGUAGES,
-                        value="Auto",
-                        interactive=True,
-                        scale=1
-                    )
-                    execution_mode = gr.Radio(
-                        choices=["遠端 API（DashScope 聲音分身）", "本地端模型（離線 TTS）"],
-                        value="遠端 API（DashScope 聲音分身）",
-                        label="執行模式",
-                        info="遠端 API 需 DASHSCOPE_API_KEY；本地端不需金鑰",
-                        scale=2
-                    )
+                        gr.Markdown("### ② 情感指令（選填）", elem_classes=["section-title"])
+                        gr.HTML("<p class='section-note'>以自然語言描述說話風格或情緒，僅限中英文。<br>例：「說話語速稍慢，帶有溫柔關懷的語氣」</p>")
+                        preset_instructions = gr.Textbox(
+                            label="情感 / 風格指令",
+                            placeholder="例：語速稍慢，帶有溫柔的語氣…（選填）",
+                            lines=3
+                        )
 
-                # ── 遠端模式專屬設定（預設顯示）──
-                api_key_input = gr.Textbox(
-                    label="DashScope API Key（選填）",
-                    placeholder="貼上 API Key，優先於環境變數 DASHSCOPE_API_KEY",
-                    type="password",
-                    visible=True
-                )
+                    with gr.Column(scale=1, elem_classes=["panel"]):
+                        gr.Markdown("### ③ 輸入文字", elem_classes=["section-title"])
+                        gr.HTML("<p class='section-note'>輸入要以選定聲線說出的文字（最多 600 字）。</p>")
+                        preset_text = gr.Textbox(
+                            label="合成文字",
+                            placeholder="輸入要合成的文字…",
+                            lines=5,
+                            value="歡迎使用 Voice Mimic 預設聲線功能，現在你可以不需要參考音檔，直接選擇喜歡的聲音風格來合成語音。"
+                        )
 
-                # ── 本地端模式專屬設定（預設隱藏）──
-                local_model_dropdown = gr.Dropdown(
-                    label="本地端 TTS 模型",
-                    choices=_LOCAL_TTS_MODELS,
-                    value=_LOCAL_TTS_MODELS[0],
-                    info="espeak-ng 完全離線；edge-tts 需網路但語音品質更自然",
-                    visible=False
-                )
+                        with gr.Row():
+                            preset_language = gr.Dropdown(
+                                label="語言",
+                                choices=_LANGUAGES,
+                                value="Auto",
+                                interactive=True,
+                                scale=1
+                            )
+                            preset_api_key = gr.Textbox(
+                                label="DashScope API Key（選填）",
+                                placeholder="貼上 API Key…",
+                                type="password",
+                                scale=2
+                            )
 
-                submit_btn = gr.Button(
-                    "🎧 開始克隆合成",
-                    variant="primary",
-                    size="lg",
-                    elem_classes=["synthesize-btn"]
-                )
+                        preset_submit_btn = gr.Button(
+                            "🔊 開始合成",
+                            variant="primary",
+                            size="lg",
+                            elem_classes=["synthesize-btn"]
+                        )
 
-                gr.Markdown("### ④ 合成結果", elem_classes=["section-title"])
-                status_output = gr.Textbox(
-                    label="系統訊息",
-                    interactive=False,
-                    lines=2
-                )
-                audio_output = gr.Audio(
-                    label="克隆合成語音",
-                    type="filepath"
+                        gr.Markdown("### ④ 合成結果", elem_classes=["section-title"])
+                        preset_status = gr.Textbox(label="系統訊息", interactive=False, lines=2)
+                        preset_audio_output = gr.Audio(label="合成語音", type="filepath")
+
+                preset_submit_btn.click(
+                    fn=synthesize_speech_preset,
+                    inputs=[preset_text, preset_voice, preset_language,
+                            preset_instructions, preset_api_key],
+                    outputs=[preset_audio_output, preset_status]
                 )
 
-        # ── Event binding ─────────────────────────────────────────────
+            # ════════════════════════════════════════════════════════
+            # Tab 3 — 聲線設計
+            # ════════════════════════════════════════════════════════
+            with gr.Tab("③ 聲線設計"):
+                with gr.Row(elem_classes=["panel-grid"]):
 
-        # Toggle mode-specific settings visibility
-        def _on_mode_change(mode):
-            is_remote = mode.startswith("遠端")
-            return gr.update(visible=is_remote), gr.update(visible=not is_remote)
+                    with gr.Column(scale=1, elem_classes=["panel"]):
+                        gr.Markdown("### ① 描述你的聲線", elem_classes=["section-title"])
+                        gr.HTML("<p class='section-note'>以自然語言描述想要的聲音特質，中英文均可。<br>可描述性別、年齡、音色、語速、口音、情緒等。</p>")
+                        vd_prompt = gr.Textbox(
+                            label="聲線描述",
+                            placeholder=(
+                                "例（中）：一位三十歲左右的女性，聲音溫柔清亮，說話速度平穩，帶有輕微台灣腔調。\n"
+                                "例（英）：A calm middle-aged male narrator with a deep, rich voice "
+                                "and clear articulation, suitable for documentary narration."
+                            ),
+                            lines=5
+                        )
 
-        execution_mode.change(
-            fn=_on_mode_change,
-            inputs=[execution_mode],
-            outputs=[api_key_input, local_model_dropdown]
-        )
+                        gr.Markdown("### ② 預覽文字（選填）", elem_classes=["section-title"])
+                        gr.HTML("<p class='section-note'>建立聲線時用於預覽的短句，留空則使用合成文字前 50 字。</p>")
+                        vd_preview_text = gr.Textbox(
+                            label="預覽文字",
+                            placeholder="例：大家好，我是你的語音助理。",
+                            lines=2
+                        )
 
-        submit_btn.click(
-            fn=synthesize_speech,
-            inputs=[
-                audio_input,
-                reference_text_input,
-                text_input,
-                execution_mode,
-                xvector_only,
-                language_selector,
-                api_key_input,
-                local_model_dropdown,
-            ],
-            outputs=[audio_output, status_output]
-        )
+                    with gr.Column(scale=1, elem_classes=["panel"]):
+                        gr.Markdown("### ③ 輸入合成文字", elem_classes=["section-title"])
+                        gr.HTML("<p class='section-note'>輸入要以設計聲線說出的文字。</p>")
+                        vd_text = gr.Textbox(
+                            label="合成文字",
+                            placeholder="輸入要合成的文字…",
+                            lines=5,
+                            value="這是一段由自訂聲線說出的語音，聲線的風格完全由你的描述所決定。你可以嘗試不同的描述方式，創造出獨一無二的聲音。"
+                        )
+
+                        with gr.Row():
+                            vd_language = gr.Dropdown(
+                                label="語言",
+                                choices=_LANGUAGES,
+                                value="Chinese",
+                                interactive=True,
+                                scale=1
+                            )
+                            vd_api_key = gr.Textbox(
+                                label="DashScope API Key（選填）",
+                                placeholder="貼上 API Key…",
+                                type="password",
+                                scale=2
+                            )
+
+                        vd_submit_btn = gr.Button(
+                            "🎨 設計並合成",
+                            variant="primary",
+                            size="lg",
+                            elem_classes=["synthesize-btn"]
+                        )
+
+                        gr.Markdown("### ④ 合成結果", elem_classes=["section-title"])
+                        vd_status = gr.Textbox(label="系統訊息", interactive=False, lines=2)
+                        vd_audio_output = gr.Audio(label="合成語音", type="filepath")
+
+                vd_submit_btn.click(
+                    fn=synthesize_speech_voice_design,
+                    inputs=[vd_prompt, vd_preview_text, vd_text, vd_language, vd_api_key],
+                    outputs=[vd_audio_output, vd_status]
+                )
 
         gr.HTML("<p class='footer-tip'>提示：請確認已設定 <code>DASHSCOPE_API_KEY</code>，並使用自然語速錄音以獲得最佳聲音相似度。</p>")
 
