@@ -15,6 +15,42 @@ try:
 except Exception:
     pyttsx3 = None
 
+try:
+    import edge_tts as _edge_tts_module
+except Exception:
+    _edge_tts_module = None
+
+
+def _run_edge_tts(text: str, voice: str, output_path: str):
+    """Run edge-tts synthesis in an isolated thread+event loop (Gradio-safe)."""
+    import asyncio
+    import threading
+    import edge_tts
+
+    async def _synth():
+        communicate = edge_tts.Communicate(text, voice)
+        await communicate.save(output_path)
+
+    exc_holder = []
+
+    def _worker():
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            loop.run_until_complete(_synth())
+        except Exception as e:
+            exc_holder.append(e)
+        finally:
+            loop.close()
+
+    t = threading.Thread(target=_worker, daemon=True)
+    t.start()
+    t.join(timeout=90)
+    if t.is_alive():
+        raise TimeoutError("edge-tts 合成逾時（90 秒）")
+    if exc_holder:
+        raise exc_holder[0]
+
 # ======= Constants Configuration =======
 DEFAULT_TARGET_MODEL = "qwen3-tts-vc-realtime-2025-11-27"
 DEFAULT_PREFERRED_NAME = "custom_voice"
@@ -23,6 +59,16 @@ DEFAULT_CN_HTTP_URL = "https://dashscope-intl.aliyuncs.com/compatible-mode/v1"
 DEFAULT_INTL_HTTP_URL = "https://dashscope-us.aliyuncs.com/compatible-mode/v1"
 DEFAULT_CN_WS_URL = "wss://dashscope-intl.aliyuncs.com/api-ws/v1/realtime"
 DEFAULT_INTL_WS_URL = "wss://dashscope-us.aliyuncs.com/api-ws/v1/realtime"
+
+# Local TTS model options shown in the UI dropdown
+_LOCAL_TTS_MODELS = [
+    "espeak-ng（離線）",
+    "edge-tts — zh-TW-HsiaoChenNeural（繁中女）",
+    "edge-tts — zh-TW-YunJheNeural（繁中男）",
+    "edge-tts — zh-CN-XiaoxiaoNeural（普通話女）",
+    "edge-tts — zh-CN-YunxiNeural（普通話男）",
+    "edge-tts — en-US-JennyNeural（英文女）",
+]
 
 UI_HEAD = """
 <link rel=\"preconnect\" href=\"https://fonts.googleapis.com\">
@@ -526,7 +572,8 @@ def normalize_segment_text(text_input: str) -> str:
 
 def synthesize_speech_remote(audio_file, reference_text, text_input,
                             use_xvector_only: bool = False,
-                            language: str = "Auto"):
+                            language: str = "Auto",
+                            api_key_override: str = ""):
     """
     Main function for speech synthesis (Voice Clone mode).
 
@@ -536,6 +583,7 @@ def synthesize_speech_remote(audio_file, reference_text, text_input,
         text_input: Target text to synthesize with the cloned voice.
         use_xvector_only: If True, skip reference_text and use x-vector only (lower quality).
         language: Target language hint (Auto / Chinese / English / …).
+        api_key_override: API key entered directly in UI; overrides env var if provided.
 
     Returns:
         Tuple of (audio_path, status_message)
@@ -551,8 +599,13 @@ def synthesize_speech_remote(audio_file, reference_text, text_input,
         if not use_xvector_only and (not reference_text or not reference_text.strip()):
             return None, "❌ 請輸入參考聲音逐字稿（或勾選『僅使用 X-vector』以跳過）"
 
-        # Initialize API Key
-        init_dashscope_api_key()
+        # API key: UI input takes priority over env var
+        if api_key_override and api_key_override.strip():
+            key = api_key_override.strip()
+            dashscope.api_key = key
+            os.environ["DASHSCOPE_API_KEY"] = key
+        else:
+            init_dashscope_api_key()
 
         endpoint_candidates = get_dashscope_endpoint_candidates()
         last_error = None
@@ -561,7 +614,6 @@ def synthesize_speech_remote(audio_file, reference_text, text_input,
         callback = None
 
         for idx, (customization_url, ws_url) in enumerate(endpoint_candidates, start=1):
-            endpoint_hint = f"{customization_url} | {ws_url}"
             try:
                 # Create voice clone
                 status_msg = f"🎤 正在建立聲音分身（端點 {idx}/{len(endpoint_candidates)}）..."
@@ -639,8 +691,12 @@ def synthesize_speech_remote(audio_file, reference_text, text_input,
         return None, error_msg
 
 
-def synthesize_speech_local(text_input):
-    """Local offline TTS synthesis without remote API."""
+def synthesize_speech_local(text_input, local_model: str = ""):
+    """Local offline TTS synthesis without remote API.
+
+    local_model: one of _LOCAL_TTS_MODELS, e.g. 'espeak-ng（離線）' or
+                 'edge-tts — zh-TW-HsiaoChenNeural（繁中女）'.
+    """
     import sys
     import shutil
     import subprocess
@@ -650,11 +706,32 @@ def synthesize_speech_local(text_input):
         if not normalized_text:
             return None, "❌ 請先輸入要合成的文字"
 
-        with tempfile.NamedTemporaryFile(delete=False, suffix='.wav') as tmp_file:
-            output_path = tmp_file.name
+        model = (local_model or "espeak-ng（離線）").strip()
 
-        # On Linux use espeak-ng subprocess directly — avoids pyttsx3 weakref
-        # crashes on Python 3.13 (ReferenceError in ctypes callback).
+        # ── edge-tts path ─────────────────────────────────────────────
+        if model.startswith("edge-tts"):
+            if _edge_tts_module is None:
+                return None, "❌ edge-tts 套件未安裝，請 pip install edge-tts"
+            # Parse voice name: "edge-tts — zh-TW-HsiaoChenNeural（繁中女）"
+            #                              ↑ after "— ", before "（"
+            try:
+                voice = model.split("—")[1].strip().split("（")[0].strip()
+            except IndexError:
+                voice = "zh-TW-HsiaoChenNeural"
+
+            with tempfile.NamedTemporaryFile(delete=False, suffix='.mp3') as f:
+                output_path = f.name
+
+            _run_edge_tts(normalized_text, voice, output_path)
+
+            if os.path.exists(output_path) and os.path.getsize(output_path) > 0:
+                return output_path, f"✅ edge-tts 合成完成（{voice}）"
+            return None, "❌ edge-tts 未產生音訊"
+
+        # ── espeak-ng path (Linux / default) ──────────────────────────
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.wav') as f:
+            output_path = f.name
+
         if sys.platform != 'win32' and shutil.which('espeak-ng'):
             cmd = ['espeak-ng', '-w', output_path]
             rate = os.getenv("LOCAL_TTS_RATE", "").strip()
@@ -663,11 +740,11 @@ def synthesize_speech_local(text_input):
             cmd.append(normalized_text)
             result = subprocess.run(cmd, capture_output=True, timeout=60)
             if result.returncode == 0 and os.path.exists(output_path) and os.path.getsize(output_path) > 0:
-                return output_path, "✅ 本地端模型合成完成（離線）"
+                return output_path, "✅ espeak-ng 合成完成（離線）"
             stderr = result.stderr.decode(errors='replace').strip()
             return None, f"❌ espeak-ng 合成失敗：{stderr or result.returncode}"
 
-        # Windows / fallback: use pyttsx3 (SAPI5)
+        # ── pyttsx3 fallback (Windows / SAPI5) ────────────────────────
         if pyttsx3 is None:
             return None, "❌ 尚未安裝本地端 TTS 套件 pyttsx3，請先 pip install pyttsx3"
 
@@ -703,14 +780,16 @@ def synthesize_speech_local(text_input):
 
 
 def synthesize_speech(audio_file, reference_text, text_input,
-                     execution_mode, use_xvector_only, language):
+                     execution_mode, use_xvector_only, language,
+                     api_key_override, local_model):
     """Dispatch synthesis to local or remote runtime."""
     if execution_mode and execution_mode.startswith("本地端"):
-        return synthesize_speech_local(text_input)
+        return synthesize_speech_local(text_input, local_model=local_model or "")
     return synthesize_speech_remote(
         audio_file, reference_text, text_input,
         use_xvector_only=bool(use_xvector_only),
-        language=language or "Auto"
+        language=language or "Auto",
+        api_key_override=api_key_override or ""
     )
 
 # ======= Gradio Interface =======
@@ -804,6 +883,23 @@ def create_gradio_interface():
                         scale=2
                     )
 
+                # ── 遠端模式專屬設定（預設顯示）──
+                api_key_input = gr.Textbox(
+                    label="DashScope API Key（選填）",
+                    placeholder="貼上 API Key，優先於環境變數 DASHSCOPE_API_KEY",
+                    type="password",
+                    visible=True
+                )
+
+                # ── 本地端模式專屬設定（預設隱藏）──
+                local_model_dropdown = gr.Dropdown(
+                    label="本地端 TTS 模型",
+                    choices=_LOCAL_TTS_MODELS,
+                    value=_LOCAL_TTS_MODELS[0],
+                    info="espeak-ng 完全離線；edge-tts 需網路但語音品質更自然",
+                    visible=False
+                )
+
                 submit_btn = gr.Button(
                     "🎧 開始克隆合成",
                     variant="primary",
@@ -823,6 +919,18 @@ def create_gradio_interface():
                 )
 
         # ── Event binding ─────────────────────────────────────────────
+
+        # Toggle mode-specific settings visibility
+        def _on_mode_change(mode):
+            is_remote = mode.startswith("遠端")
+            return gr.update(visible=is_remote), gr.update(visible=not is_remote)
+
+        execution_mode.change(
+            fn=_on_mode_change,
+            inputs=[execution_mode],
+            outputs=[api_key_input, local_model_dropdown]
+        )
+
         submit_btn.click(
             fn=synthesize_speech,
             inputs=[
@@ -831,7 +939,9 @@ def create_gradio_interface():
                 text_input,
                 execution_mode,
                 xvector_only,
-                language_selector
+                language_selector,
+                api_key_input,
+                local_model_dropdown,
             ],
             outputs=[audio_output, status_output]
         )
