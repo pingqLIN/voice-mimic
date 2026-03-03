@@ -1,5 +1,5 @@
 dashscope
-gradio==5.49.1
+gradio==6.7.0
 requests
 certifi
 pyttsx3
