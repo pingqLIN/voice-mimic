@@ -1,6 +1,6 @@
 # Qwen3-TTS Dependencies for HuggingFace Spaces
 torch==2.8.0
-transformers==4.57.3
+transformers==5.0.0rc3
 accelerate==1.12.0
 einops
 gradio
