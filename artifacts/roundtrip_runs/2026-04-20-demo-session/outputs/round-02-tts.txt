@@ -1,0 +1,15 @@
+{
+  "round_index": 2,
+  "prompt_id": "demo_speaker_01-zh-31c30a85e886",
+  "update_targets": [
+    "playback_compensation",
+    "prompt_pack_selection",
+    "generation_parameters"
+  ],
+  "notes": [
+    "Channel residual is still high.",
+    "Speaker similarity is below the target floor.",
+    "Prosody drift exceeded target threshold."
+  ],
+  "created_at": "2026-04-20T12:32:34.198874+00:00"
+}

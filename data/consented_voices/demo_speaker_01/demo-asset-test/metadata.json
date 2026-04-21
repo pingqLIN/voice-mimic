@@ -1,0 +1,15 @@
+{
+  "reference_id": "demo-asset-test",
+  "speaker_id": "demo_speaker_01",
+  "display_name": "Demo Speaker",
+  "language": "zh",
+  "speaking_style": "neutral",
+  "recording_condition": "clean_mic",
+  "consent_scope": "internal_tts_only",
+  "consent_expires_on": "2027-12-31",
+  "source_audio_filename": "qwen3-vp-demo.wav",
+  "audio_path": "data\\consented_voices\\demo_speaker_01\\demo-asset-test\\source.wav",
+  "transcript_path": "data\\consented_voices\\demo_speaker_01\\demo-asset-test\\transcript.txt",
+  "registered_at": "2026-04-20T12:15:18.368938+00:00",
+  "notes": ""
+}

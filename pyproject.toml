@@ -1,0 +1,38 @@
+[project]
+name = "qwen3-voice-preservation"
+version = "0.1.0"
+description = "Consent-based voice preservation research workspace around PingKuei/Qwen3-TTS"
+requires-python = ">=3.11"
+dependencies = [
+  "numpy>=2.2.0",
+  "PyYAML>=6.0",
+  "sounddevice>=0.5.2",
+  "soundfile>=0.13.1",
+]
+
+[project.scripts]
+qwen3-vp = "qwen3_voice_preservation.cli:main"
+qwen3-vp-assets = "qwen3_voice_preservation.assets_cli:main"
+qwen3-vp-prompts = "qwen3_voice_preservation.prompts_cli:main"
+qwen3-vp-calibrate = "qwen3_voice_preservation.calibration_cli:main"
+qwen3-vp-audio-devices = "qwen3_voice_preservation.audio_cli:main"
+
+[build-system]
+requires = ["hatchling>=1.27.0"]
+build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = [
+  "pytest>=8.3.0",
+  "ruff>=0.11.0",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/qwen3_voice_preservation"]

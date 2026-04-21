@@ -1,0 +1,14 @@
+speakers:
+  - id: demo_speaker_01
+    display_name: Demo Speaker
+    consent_status: approved
+    consent_scope: internal_tts_only
+    consent_expires_on: 2027-12-31
+    source_audio_dir: data/consented_voices/demo_speaker_01
+    transcript_required: true
+    preferred_prompt_mode: icl
+    allowed_languages:
+      - zh
+      - en
+    notes: >
+      Store multiple approved prompt packs for neutral, energetic, and calm delivery.

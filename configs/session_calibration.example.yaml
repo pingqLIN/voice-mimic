@@ -1,0 +1,33 @@
+session:
+  session_id: 2026-04-20-demo-session
+  room_label: office-desk-a
+  playback_device_id: default-speaker
+  capture_device_id: default-microphone
+  agc_disabled: true
+  aec_disabled: true
+  noise_suppression_disabled: true
+
+calibration:
+  signal_type: log_sine_sweep
+  sample_rate: 48000
+  duration_seconds: 8
+  playback_gain_db: -9.0
+  record_gain_db: 0.0
+  repetitions: 2
+
+compensation:
+  enable_latency_compensation: true
+  enable_eq_compensation: true
+  enable_dereverb: false
+  max_eq_boost_db: 6.0
+  max_eq_cut_db: 12.0
+
+roundtrip_experiment:
+  max_rounds: 3
+  fixed_prompt_mode: transcript_backed_icl
+  allow_prompt_regeneration_from_roundtrip_audio: false
+  allow_model_finetuning: false
+  target_metrics:
+    min_speaker_similarity: 0.82
+    max_cer: 0.08
+    max_prosody_drift: 0.15

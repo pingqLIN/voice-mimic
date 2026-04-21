@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+.venv/
+
+# Hugging Face / model caches
+**/.cache/
+models/
+
+# Voice assets and outputs
+artifacts/voice_prompts/*.pt
+artifacts/exports/
+
+# OS / editor
+.DS_Store
+Thumbs.db

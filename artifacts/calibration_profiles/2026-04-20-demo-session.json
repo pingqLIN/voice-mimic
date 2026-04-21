@@ -1,0 +1,15 @@
+{
+  "session_id": "2026-04-20-demo-session",
+  "room_label": "office-desk-a",
+  "playback_device_id": "default-speaker",
+  "capture_device_id": "default-microphone",
+  "latency_ms": 57.0,
+  "noise_floor_dbfs": -56.50962644387328,
+  "frequency_tilt_db": -0.7104545544899683,
+  "eq_profile": {
+    "low_shelf_db": 0.35522727724498415,
+    "presence_db": -0.2486590940714889
+  },
+  "playback_gain_db": -9.0,
+  "record_gain_db": 0.0
+}

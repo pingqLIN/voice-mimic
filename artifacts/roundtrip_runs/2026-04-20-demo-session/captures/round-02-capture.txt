@@ -1,0 +1,6 @@
+{
+  "source_output": "Q:\\Projects\\qwen3-voice-preservation\\artifacts\\roundtrip_runs\\2026-04-20-demo-session\\outputs\\round-02-tts.txt",
+  "round_index": 2,
+  "latency_ms": 57.0,
+  "captured_at": "2026-04-20T12:32:34.202882+00:00"
+}

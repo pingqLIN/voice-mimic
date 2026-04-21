@@ -1,0 +1,57 @@
+{
+  "session_id": "2026-04-20-demo-session",
+  "speaker_id": "demo_speaker_01",
+  "prompt_id": "demo_speaker_01-zh-31c30a85e886",
+  "calibration_profile_path": "Q:\\Projects\\qwen3-voice-preservation\\artifacts\\calibration_profiles\\2026-04-20-demo-session.json",
+  "config_path": "Q:\\Projects\\qwen3-voice-preservation\\configs\\session_calibration.example.yaml",
+  "stop_reason": "target_reached",
+  "generated_at": "2026-04-20T12:32:34.206898+00:00",
+  "rounds": [
+    {
+      "round_index": 1,
+      "output_path": "Q:\\Projects\\qwen3-voice-preservation\\artifacts\\roundtrip_runs\\2026-04-20-demo-session\\outputs\\round-01-tts.txt",
+      "captured_path": "Q:\\Projects\\qwen3-voice-preservation\\artifacts\\roundtrip_runs\\2026-04-20-demo-session\\captures\\round-01-capture.txt",
+      "scores": {
+        "speaker_similarity": 0.78,
+        "cer": 0.06,
+        "prosody_drift": 0.18,
+        "channel_residual": 0.21
+      },
+      "update_plan": {
+        "round_index": 1,
+        "targets": [
+          "playback_compensation",
+          "prompt_pack_selection",
+          "generation_parameters"
+        ],
+        "notes": [
+          "Channel residual is still high.",
+          "Speaker similarity is below the target floor.",
+          "Prosody drift exceeded target threshold."
+        ]
+      }
+    },
+    {
+      "round_index": 2,
+      "output_path": "Q:\\Projects\\qwen3-voice-preservation\\artifacts\\roundtrip_runs\\2026-04-20-demo-session\\outputs\\round-02-tts.txt",
+      "captured_path": "Q:\\Projects\\qwen3-voice-preservation\\artifacts\\roundtrip_runs\\2026-04-20-demo-session\\captures\\round-02-capture.txt",
+      "scores": {
+        "speaker_similarity": 0.83,
+        "cer": 0.05,
+        "prosody_drift": 0.14,
+        "channel_residual": 0.13
+      },
+      "update_plan": {
+        "round_index": 2,
+        "targets": [
+          "playback_compensation"
+        ],
+        "notes": [
+          "Channel residual is still high.",
+          "Channel compensation is improving.",
+          "Speaker identity retention improved."
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "prompt_id": "demo_speaker_01-zh-a5e6f59a359f",
+  "speaker_id": "demo_speaker_01",
+  "prompt_mode": "transcript_backed_icl",
+  "transcript": "\u9019\u662f controller \u9a57\u8b49\u3002",
+  "language": "zh",
+  "source_audio_dir": "data/consented_voices/demo_speaker_01",
+  "created_at": "2026-04-20T12:15:18.135072+00:00",
+  "backend": "dry_run"
+}

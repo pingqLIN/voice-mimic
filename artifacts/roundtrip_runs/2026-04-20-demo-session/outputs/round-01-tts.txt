@@ -1,0 +1,11 @@
+{
+  "round_index": 1,
+  "prompt_id": "demo_speaker_01-zh-31c30a85e886",
+  "update_targets": [
+    "playback_compensation"
+  ],
+  "notes": [
+    "Calibration is running in dry-run mode."
+  ],
+  "created_at": "2026-04-20T12:32:34.190877+00:00"
+}

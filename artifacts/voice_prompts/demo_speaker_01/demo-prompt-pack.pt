@@ -1,0 +1,18 @@
+{
+  "items": [
+    {
+      "ref_code": [
+        1,
+        2,
+        3
+      ],
+      "ref_spk_embedding": [
+        0.1,
+        0.2
+      ],
+      "x_vector_only_mode": false,
+      "icl_mode": true,
+      "ref_text": "\u9019\u662f prompt builder \u6e2c\u8a66\u3002"
+    }
+  ]
+}

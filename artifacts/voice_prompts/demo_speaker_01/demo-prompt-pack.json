@@ -1,0 +1,11 @@
+{
+  "prompt_id": "demo-prompt-pack",
+  "speaker_id": "demo_speaker_01",
+  "reference_id": "demo-prompt-ref",
+  "language": "zh",
+  "reference_audio_path": "data\\consented_voices\\demo_speaker_01\\demo-prompt-ref\\source.wav",
+  "reference_transcript_path": "data\\consented_voices\\demo_speaker_01\\demo-prompt-ref\\transcript.txt",
+  "x_vector_only_mode": false,
+  "model_label": "Qwen/Qwen3-TTS-12Hz-0.6B-Base",
+  "created_at": "2026-04-20T12:17:30.658093+00:00"
+}
